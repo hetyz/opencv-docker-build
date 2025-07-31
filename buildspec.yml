@@ -1,19 +1,19 @@
-on: 0.2
+version: 0.2
 
 phases:
-    pre_build:
-          commands:
-          - echo "=== Builder image build ==="
-                          - docker build -f Dockerfile.builder -t opencv-builder:latest .
+  pre_build:
+    commands:
+      - echo "=== Builder image build ==="
+      - docker build -f Dockerfile.builder -t opencv-builder:latest .
 
-                              build:
-                                    commands:
-                                            - echo "=== Core image build ==="
-                                                    - docker build -f Dockerfile.core -t opencv-core:latest .
-                                                            - echo "=== Video image build ==="
-                                                                    - docker build -f Dockerfile.video -t opencv-video:latest .
+  build:
+    commands:
+      - echo "=== Core image build ==="
+      - docker build -f Dockerfile.core -t opencv-core:latest .
+      - echo "=== Video image build ==="
+      - docker build -f Dockerfile.video -t opencv-video:latest .
 
-                                                                        post_build:
-                                                                              commands:
-                                                                                      - echo "=== Build kész! ==="
-                                                                                              - docker images | grep opencv
+  post_build:
+    commands:
+      - echo "=== Build kész! ==="
+      - docker images | grep opencv
