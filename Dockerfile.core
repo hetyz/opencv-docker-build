@@ -1,0 +1,45 @@
+FROM public.ecr.aws/lambda/provided:al2
+
+RUN yum update -y && \
+    yum install -y gtk2 libX11 libXext libXrender jq && \
+    yum clean all
+
+# ! Itt a változás: nem a build stage-ből, hanem az opencv-builder image-ből copy-zunk!
+COPY --from=opencv-builder:latest /build/opencv/build/bin/opencv_test_core /var/task/opencv_test_core
+COPY --from=opencv-builder:latest /build/opencv/build/lib/libopencv_*.so.* /var/task/
+
+FROM public.ecr.aws/lambda/provided:al2
+
+RUN yum update -y && \
+    yum install -y gtk2 libX11 libXext libXrender jq && \
+    yum clean all
+
+# ! Itt a változás: nem a build stage-ből, hanem az opencv-builder image-ből copy-zunk!
+COPY --from=opencv-builder:latest /build/opencv/build/bin/opencv_test_core /var/task/opencv_test_core
+COPY --from=opencv-builder:latest /build/opencv/build/lib/libopencv_*.so.* /var/task/
+
+# ... (marad a bootstrap script stb.)
+
+WORKDIR /var/runtime
+
+RUN echo '#!/bin/sh' > bootstrap && \
+    echo 'set -e' >> bootstrap && \
+    echo 'HANDLER_PATH="/var/task/opencv_test_core"' >> bootstrap && \
+    echo 'if [ ! -x "$HANDLER_PATH" ]; then' >> bootstrap && \
+    echo '  echo "Handler binary not executable" >&2' >> bootstrap && \
+    echo '  exit 127' >> bootstrap && \
+    echo 'fi' >> bootstrap && \
+	   echo '"$HANDLER_PATH" --gtest_list_tests | \
+awk '\''/^[^ ]/ {suite=$1; if (substr(suite, length(suite), 1) == ".") {suite=substr(suite, 1, length(suite)-1)}} /^[ ]/ {gsub(/^ +/,""); print suite"."$1}'\'' | \
+head -n 5 | \
+while read TEST; do' >> bootstrap && \
+    echo '  echo "== RUNNING: [$TEST] =="' >> bootstrap && \
+    echo '  "$HANDLER_PATH" --gtest_filter=$TEST' >> bootstrap && \
+    echo 'done' >> bootstrap && \
+    chmod +x bootstrap
+
+
+ENV LD_LIBRARY_PATH=/var/task:$LD_LIBRARY_PATH
+
+ENTRYPOINT ["/var/runtime/bootstrap"]
+
