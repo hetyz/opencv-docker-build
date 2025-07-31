@@ -18,8 +18,8 @@ phases:
   post_build:
     commands:
       - echo "=== Pushing images to ECR ==="
-      - docker tag opencv-core:latest 145023095322.dkr.ecr.eu-north-1.amazonaws.com/opencv-core:latest
-      - docker push 145023095322.dkr.ecr.eu-north-1.amazonaws.com/opencv-core:latest
-      - docker tag opencv-video:latest 145023095322.dkr.ecr.eu-north-1.amazonaws.com/opencv-video:latest
-      - docker push 145023095322.dkr.ecr.eu-north-1.amazonaws.com/opencv-video:latest
-      - echo "=== Kész! ==="
+      - docker tag opencv-core:latest 145023095322.dkr.ecr.eu-north-1.amazonaws.com/opencv-core-test:latest
+      - docker push 145023095322.dkr.ecr.eu-north-1.amazonaws.com/opencv-core-test:latest
+      - docker tag opencv-video:latest 145023095322.dkr.ecr.eu-north-1.amazonaws.com/opencv-video-test:latest
+      - docker push 145023095322.dkr.ecr.eu-north-1.amazonaws.com/opencv-video-test:latest
+      - echo "=== DONE! ==="
