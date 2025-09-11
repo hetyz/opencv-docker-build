@@ -1,12 +1,10 @@
 # Dockerfile.core
 FROM public.ecr.aws/lambda/provided:al2
 
-# Csak a szükséges eszközök futásidőre
 RUN yum update -y && \
-    yum install -y curl jq && \
+    yum install -y curl jq gawk && \
     yum clean all
 
-# OpenCV teszt bináris
 COPY --from=opencv-builder:latest /build/opencv/build/bin/opencv_test_core /var/task/opencv_test_core
 COPY --from=opencv-builder:latest /build/opencv/build/lib/ /var/task/
 
@@ -15,17 +13,25 @@ RUN echo '#!/bin/sh' > bootstrap && \
     echo 'set -euo pipefail' >> bootstrap && \
     echo 'HANDLER_PATH="/var/task/opencv_test_core"' >> bootstrap && \
     echo 'RIC="${AWS_LAMBDA_RUNTIME_API}"' >> bootstrap && \
+    echo 'TOP_N="${TOP_N:-5}"' >> bootstrap && \
+    echo 'echo "[BOOTSTRAP] start RIC=${RIC:-<unset>}"' >> bootstrap && \
     echo '[ -x "$HANDLER_PATH" ] || { echo "Not executable: $HANDLER_PATH" >&2; exit 127; }' >> bootstrap && \
     echo 'while true; do' >> bootstrap && \
     echo '  H=$(mktemp); B=$(mktemp)' >> bootstrap && \
-    echo '  curl -sS -D "$H" -o "$B" "http://$RIC/2018-06-01/runtime/invocation/next" >/dev/null' >> bootstrap && \
-    echo "  REQ_ID=\$(sed -n 's/\r$//;s/^Lambda-Runtime-Aws-Request-Id: //p' \"\$H\" | head -n1)" >> bootstrap && \
-    echo '  RC=0' >> bootstrap && \
-    echo '  "$HANDLER_PATH" --gtest_output=xml:/tmp/gtest.xml || RC=$?' >> bootstrap && \
-    echo '  STATUS="ok"; [ "$RC" -ne 0 ] && STATUS="failed"' >> bootstrap && \
-    echo "  printf '{\"status\":\"%s\",\"exit_code\":%s}' \"\$STATUS\" \"\$RC\" | \\" >> bootstrap && \
-    echo '    curl -sS -X POST "http://$RIC/2018-06-01/runtime/invocation/$REQ_ID/response" \' >> bootstrap && \
-    echo '         -H "Content-Type: application/json" -d @- >/dev/null' >> bootstrap && \
+    echo '  curl -sfS -D "$H" -o "$B" "http://$RIC/2018-06-01/runtime/invocation/next" >/dev/null' >> bootstrap && \
+    echo "  REQ_ID=\$(sed -n 's/\\r\$//;s/^Lambda-Runtime-Aws-Request-Id: //p' \"\$H\" | head -n1)" >> bootstrap && \
+    echo '  [ -n "$REQ_ID" ] || { echo "[BOOTSTRAP] missing request id"; exit 125; }' >> bootstrap && \
+    echo '  # --- Tesztlista összerakása, pont ugyanúgy, mint régen ---' >> bootstrap && \
+    echo "  TESTS=\$(\"$HANDLER_PATH\" --gtest_list_tests | gawk '/^[^ ]/ {suite=\$1; sub(/\\.$/, \"\", suite)} /^[ ]/ {gsub(/^ +/,\"\"); print suite\".\"$1}' | head -n \"\$TOP_N\")" >> bootstrap && \
+    echo '  PASSED=0; FAILED=0; SKIPPED=0' >> bootstrap && \
+    echo '  echo "$TESTS" | while read -r TEST; do' >> bootstrap && \
+    echo '    [ -n "$TEST" ] || continue' >> bootstrap && \
+    echo '    echo "== RUNNING: [$TEST] ==" ' >> bootstrap && \
+    echo '    if "$HANDLER_PATH" --gtest_filter="$TEST"; then PASSED=$((PASSED+1)); else FAILED=$((FAILED+1)); fi' >> bootstrap && \
+    echo '  done' >> bootstrap && \
+    echo '  STATUS="ok"; [ "$FAILED" -gt 0 ] && STATUS="failed"' >> bootstrap && \
+    echo '  RESP=$(jq -n --arg status "$STATUS" --argjson passed "$PASSED" --argjson failed "$FAILED" --argjson skipped "$SKIPPED" --argjson top_n "$TOP_N" "{status:\$status,summary:{passed:\$passed,failed:\$failed,skipped:\$skipped,top_n:\$top_n}}")' >> bootstrap && \
+    echo '  printf "%s" "$RESP" | curl -sfS -X POST "http://$RIC/2018-06-01/runtime/invocation/$REQ_ID/response" -H "Content-Type: application/json" -d @- >/dev/null' >> bootstrap && \
     echo '  rm -f "$H" "$B"' >> bootstrap && \
     echo 'done' >> bootstrap && \
     chmod +x bootstrap
