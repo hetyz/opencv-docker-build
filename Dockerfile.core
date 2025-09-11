@@ -7,8 +7,8 @@ RUN yum update -y && \
     yum clean all
 
 # OpenCV teszt bináris
-COPY --from=opencv-builder:latest /build/opencv/build/bin/opencv_test_core /var/task/opencv_test_core
-COPY --from=opencv-builder:latest /build/opencv/build/lib/ /var/task/
+COPY --from=opencv-builder:latest /build/opencv/build/bin/opencv_test_core 
+COPY --from=opencv-builder:latest /build/opencv/build/lib/libopencv_*.so.* /var/task/
 
 # --- Valódi bootstrap (Lambda Runtime API loop) ---
 WORKDIR /var/runtime
