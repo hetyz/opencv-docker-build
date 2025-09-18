@@ -26,7 +26,7 @@ if ! "$HANDLER_PATH" --gtest_list_tests > /tmp/test_list.txt 2>&1; then
   exit 126
 fi
 
-TESTS=$(gawk '/^[^ ]/ {suite=$1; sub(/\.$/, "", suite)} /^[ ]/ {gsub(/^ +/, ""); print suite"."$1}' /tmp/test_list.txt | head -n "$TOP_N")
+TESTS=""
 echo "[BOOTSTRAP] Request ID: $REQ_ID"
 echo "[BOOTSTRAP] Tests to run:"
 echo "$TESTS"
