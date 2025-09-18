@@ -5,7 +5,7 @@ HANDLER_PATH="/var/task/opencv_test_core"
 RIC="${AWS_LAMBDA_RUNTIME_API}"
 TOP_N="${TOP_N:-5}"
 
-echo "[BOOTSTRAP] start RIC=${RIC:-<unset>}"
+echo "[BOOTSTRAP] Start RIC=${RIC:-<unset>}"
 [ -x "$HANDLER_PATH" ] || { echo "Not executable: $HANDLER_PATH" >&2; exit 127; }
 
 H=$(mktemp)
@@ -14,7 +14,7 @@ B=$(mktemp)
 # Lekérjük az invocation-t
 curl -sfS -D "$H" -o "$B" "http://$RIC/2018-06-01/runtime/invocation/next" >/dev/null
 REQ_ID=$(sed -n 's/\r$//;s/^Lambda-Runtime-Aws-Request-Id: //p' "$H" | head -n1)
-[ -n "$REQ_ID" ] || { echo "[BOOTSTRAP] missing request id"; exit 125; }
+[ -n "$REQ_ID" ] || { echo "[BOOTSTRAP] Missing request ID"; exit 125; }
 
 # Tesztek listázása fájlba
 if ! "$HANDLER_PATH" --gtest_list_tests > /tmp/test_list.txt 2>&1; then
@@ -22,30 +22,34 @@ if ! "$HANDLER_PATH" --gtest_list_tests > /tmp/test_list.txt 2>&1; then
   RESP='{"status":"error","message":"Failed to list tests"}'
   echo "$RESP" | curl -sfS -X POST "http://$RIC/2018-06-01/runtime/invocation/$REQ_ID/response" \
     -H "Content-Type: application/json" \
-    --data-binary @-
+    --data-binary @- || echo "[BOOTSTRAP] Failed to send error response"
   exit 126
 fi
 
-TESTS=""
+# Tesztnevek kinyerése fájlba
+awk '
+  /^[^ ]/ {suite=$1; sub(/\.$/, "", suite); next}
+  /^[ ]/ {gsub(/^ +/, ""); if (suite != "") print suite "/" $1}
+' /tmp/test_list.txt | head -n "$TOP_N" > /tmp/test_names.txt
 
-echo "[BOOTSTRAP] Test Run #1"
 echo "[BOOTSTRAP] Request ID: $REQ_ID"
+echo "[BOOTSTRAP] Test run #2"
 echo "[BOOTSTRAP] Tests to run:"
-echo "$TESTS"
+cat /tmp/test_names.txt
 
 PASSED=0
 FAILED=0
 SKIPPED=0
 
-# Tesztek futtatása fájlba
-for TEST in $TESTS; do
+# Tesztek futtatása soronként
+while read -r TEST; do
   echo "== RUNNING: [$TEST] =="
   if "$HANDLER_PATH" --gtest_filter="$TEST" > "/tmp/test_${PASSED}_${FAILED}.log" 2>&1; then
     PASSED=$((PASSED+1))
   else
     FAILED=$((FAILED+1))
   fi
-done
+done < /tmp/test_names.txt
 
 STATUS="ok"
 [ "$FAILED" -gt 0 ] && STATUS="failed"
@@ -62,11 +66,8 @@ RESP=$(jq -n \
 echo "[BOOTSTRAP] Sending response: $RESP"
 
 # Válasz küldése biztonságosan
-if ! echo "$RESP" | curl -sfS -X POST "http://$RIC/2018-06-01/runtime/invocation/$REQ_ID/response" \
+echo "$RESP" | curl -sfS -X POST "http://$RIC/2018-06-01/runtime/invocation/$REQ_ID/response" \
   -H "Content-Type: application/json" \
-  --data-binary @-; then
-  echo "[BOOTSTRAP] ERROR: Failed to send response to Lambda runtime"
-  exit 127
-fi
+  --data-binary @- || echo "[BOOTSTRAP] Failed to send final response"
 
-rm -f "$H" "$B"
+rm -f "$H" "$B" /tmp/test_names.txt /tmp/test_list.txt
