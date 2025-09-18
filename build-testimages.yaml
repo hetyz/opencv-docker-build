@@ -11,9 +11,9 @@ phases:
   build:
     commands:
       - echo "Building core image..."
-      - docker build --build-arg BUILDER_IMAGE=opencv-builder-test:latest -f Dockerfile.core -t opencv-core:latest .
+      - docker build --build-arg BUILDER_IMAGE=145023095322.dkr.ecr.eu-north-1.amazonaws.com/opencv-builder-test:latest -f Dockerfile.core -t opencv-core:latest .
       - echo "Building video image..."
-      - docker build --build-arg BUILDER_IMAGE=opencv-builder-test:latest -f Dockerfile.video -t opencv-video:latest .
+      - docker build --build-arg BUILDER_IMAGE=145023095322.dkr.ecr.eu-north-1.amazonaws.com/opencv-builder-test:latest -f Dockerfile.video -t opencv-video:latest .
 
   post_build:
     commands:
