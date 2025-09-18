@@ -5,21 +5,15 @@ phases:
     commands:
       - echo "Logging in to Amazon ECR..."
       - aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin 145023095322.dkr.ecr.eu-north-1.amazonaws.com
-      - echo "=== Builder image build ==="
-      - docker build -f Dockerfile.builder -t opencv-builder:latest .
-
+      
   build:
     commands:
-      - echo "=== Core image build ==="
-      - docker build -f Dockerfile.core -t opencv-core:latest .
-      - echo "=== Video image build ==="
-      - docker build -f Dockerfile.video -t opencv-video:latest .
+      - echo "=== Builder image build ==="
+      - docker build -f Dockerfile.builder -t opencv-builder:latest .
 
   post_build:
     commands:
       - echo "=== Pushing images to ECR ==="
-      - docker tag opencv-core:latest 145023095322.dkr.ecr.eu-north-1.amazonaws.com/opencv-core-test:latest
-      - docker push 145023095322.dkr.ecr.eu-north-1.amazonaws.com/opencv-core-test:latest
-      - docker tag opencv-video:latest 145023095322.dkr.ecr.eu-north-1.amazonaws.com/opencv-video-test:latest
-      - docker push 145023095322.dkr.ecr.eu-north-1.amazonaws.com/opencv-video-test:latest
+      - docker tag opencv-builder:latest 145023095322.dkr.ecr.eu-north-1.amazonaws.com/opencv-builder-test:latest
+      - docker push 145023095322.dkr.ecr.eu-north-1.amazonaws.com/opencv-builder-test:latest
       - echo "=== DONE! ==="
