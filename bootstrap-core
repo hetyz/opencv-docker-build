@@ -17,7 +17,8 @@ REQ_ID=$(sed -n 's/\r$//;s/^Lambda-Runtime-Aws-Request-Id: //p' "$H" | head -n1)
 [ -n "$REQ_ID" ] || { echo "[BOOTSTRAP] missing request id"; exit 125; }
 
 # Tesztek listázása
-TESTS=$("$HANDLER_PATH" --gtest_list_tests | gawk '/^[^ ]/ {suite=$1; sub(/\.$/, "", suite)} /^[ ]/ {gsub(/^ +/, ""); print suite"."$1}' | head -n "$TOP_N")
+"$HANDLER_PATH" --gtest_list_tests > /tmp/test_list.txt 2>&1
+TESTS=$(gawk '/^[^ ]/ {suite=$1; sub(/\.$/, "", suite)} /^[ ]/ {gsub(/^ +/, ""); print suite"."$1}' /tmp/test_list.txt | head -n "$TOP_N")
 echo "[BOOTSTRAP] Request ID: $REQ_ID"
 echo "[BOOTSTRAP] Tests to run:"
 echo "$TESTS"
