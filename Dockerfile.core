@@ -14,7 +14,9 @@ COPY --from=builder /build/opencv/build/lib/ /var/task/
 # Bootstrap script letöltése GitHubról
 WORKDIR /var/runtime
 RUN curl -sSL https://raw.githubusercontent.com/hetyz/opencv-docker-build/main/bootstrap-core -o bootstrap && \
-    chmod +x bootstrap
+    chmod +x bootstrap && \
+    echo "=== bootstrap tartalma ===" && \
+    cat bootstrap
 
 ENV LD_LIBRARY_PATH=/var/task:/var/task/lib:/var/task/lib64:$LD_LIBRARY_PATH
 
