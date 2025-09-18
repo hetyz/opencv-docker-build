@@ -8,8 +8,8 @@ RUN yum update -y && \
     yum clean all
 
 # ! Itt a változás: nem a build stage-ből, hanem az opencv-builder image-ből copy-zunk!
-COPY --from=opencv-builder:latest /build/opencv/build/bin/opencv_test_video /var/task/opencv_test_video
-COPY --from=opencv-builder:latest /build/opencv/build/lib/libopencv_*.so.* /var/task/
+COPY --from=builder /build/opencv/build/bin/opencv_test_video /var/task/opencv_test_video
+COPY --from=builder /build/opencv/build/lib/libopencv_*.so.* /var/task/
 
 # ... (marad a bootstrap script stb.)
 
