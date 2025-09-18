@@ -1,5 +1,4 @@
 #!/bin/sh
-set -euo pipefail
 
 RIC="${AWS_LAMBDA_RUNTIME_API}"
 
