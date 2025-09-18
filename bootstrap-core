@@ -26,11 +26,9 @@ if ! "$HANDLER_PATH" --gtest_list_tests > /tmp/test_list.txt 2>&1; then
   exit 126
 fi
 
-echo "=== /tmp/test_list.txt tartalma ==="
-cat /tmp/test_list.txt
+TESTS=""
 
-TESTS=$(grep -E '^[[:space:]]+[a-zA-Z0-9_]+$' /tmp/test_list.txt | sed 's/^[[:space:]]*//')
-
+echo "[BOOTSTRAP] Test Run #1"
 echo "[BOOTSTRAP] Request ID: $REQ_ID"
 echo "[BOOTSTRAP] Tests to run:"
 echo "$TESTS"
