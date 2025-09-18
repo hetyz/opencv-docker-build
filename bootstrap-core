@@ -16,8 +16,16 @@ curl -sfS -D "$H" -o "$B" "http://$RIC/2018-06-01/runtime/invocation/next" >/dev
 REQ_ID=$(sed -n 's/\r$//;s/^Lambda-Runtime-Aws-Request-Id: //p' "$H" | head -n1)
 [ -n "$REQ_ID" ] || { echo "[BOOTSTRAP] missing request id"; exit 125; }
 
-# Tesztek listázása
-"$HANDLER_PATH" --gtest_list_tests > /tmp/test_list.txt 2>&1
+# Tesztek listázása fájlba
+if ! "$HANDLER_PATH" --gtest_list_tests > /tmp/test_list.txt 2>&1; then
+  echo "[BOOTSTRAP] ERROR: Failed to list tests"
+  RESP='{"status":"error","message":"Failed to list tests"}'
+  echo "$RESP" | curl -sfS -X POST "http://$RIC/2018-06-01/runtime/invocation/$REQ_ID/response" \
+    -H "Content-Type: application/json" \
+    --data-binary @-
+  exit 126
+fi
+
 TESTS=$(gawk '/^[^ ]/ {suite=$1; sub(/\.$/, "", suite)} /^[ ]/ {gsub(/^ +/, ""); print suite"."$1}' /tmp/test_list.txt | head -n "$TOP_N")
 echo "[BOOTSTRAP] Request ID: $REQ_ID"
 echo "[BOOTSTRAP] Tests to run:"
@@ -27,10 +35,10 @@ PASSED=0
 FAILED=0
 SKIPPED=0
 
-# Tesztek futtatása for ciklussal
+# Tesztek futtatása fájlba
 for TEST in $TESTS; do
   echo "== RUNNING: [$TEST] =="
-  if "$HANDLER_PATH" --gtest_filter="$TEST"; then
+  if "$HANDLER_PATH" --gtest_filter="$TEST" > "/tmp/test_${PASSED}_${FAILED}.log" 2>&1; then
     PASSED=$((PASSED+1))
   else
     FAILED=$((FAILED+1))
