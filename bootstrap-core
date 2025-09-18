@@ -29,26 +29,16 @@ fi
 echo "=== /tmp/test_list.txt tartalma ==="
 cat /tmp/test_list.txt
 
-TESTS=""
+TESTS=$(grep -E '^[[:space:]]+[a-zA-Z0-9_]+$' /tmp/test_list.txt | sed 's/^[[:space:]]*//')
 
 echo "[BOOTSTRAP] Request ID: $REQ_ID"
-echo "[BOOTSTRAP] Test run #3:"
+echo "[BOOTSTRAP] Test run #4:"
 echo "[BOOTSTRAP] Tests to run:"
 echo "$TESTS"
 
 PASSED=0
 FAILED=0
 SKIPPED=0
-
-# Tesztek futtatása fájlba
-for TEST in $TESTS; do
-  echo "== RUNNING: [$TEST] =="
-  if "$HANDLER_PATH" --gtest_filter="$TEST" > "/tmp/test_${PASSED}_${FAILED}.log" 2>&1; then
-    PASSED=$((PASSED+1))
-  else
-    FAILED=$((FAILED+1))
-  fi
-done
 
 STATUS="ok"
 [ "$FAILED" -gt 0 ] && STATUS="failed"
