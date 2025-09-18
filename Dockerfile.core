@@ -1,5 +1,3 @@
-# Dockerfile.core
-
 ARG BUILDER_IMAGE
 FROM ${BUILDER_IMAGE} AS builder
 
@@ -9,32 +7,13 @@ RUN yum update -y && \
     yum install -y curl jq gawk && \
     yum clean all
 
+# OpenCV binárisok átmásolása
 COPY --from=builder /build/opencv/build/bin/opencv_test_core /var/task/opencv_test_core
 COPY --from=builder /build/opencv/build/lib/ /var/task/
 
+# Bootstrap script letöltése GitHubról
 WORKDIR /var/runtime
-RUN echo '#!/bin/sh' > bootstrap && \
-    echo 'set -euo pipefail' >> bootstrap && \
-    echo 'HANDLER_PATH="/var/task/opencv_test_core"' >> bootstrap && \
-    echo 'RIC="${AWS_LAMBDA_RUNTIME_API}"' >> bootstrap && \
-    echo 'TOP_N="${TOP_N:-5}"' >> bootstrap && \
-    echo 'echo "[BOOTSTRAP] start RIC=${RIC:-<unset>}"' >> bootstrap && \
-    echo '[ -x "$HANDLER_PATH" ] || { echo "Not executable: $HANDLER_PATH" >&2; exit 127; }' >> bootstrap && \
-    echo 'H=$(mktemp); B=$(mktemp)' >> bootstrap && \
-    echo 'curl -sfS -D "$H" -o "$B" "http://$RIC/2018-06-01/runtime/invocation/next" >/dev/null' >> bootstrap && \
-    echo 'REQ_ID=$(sed -n "s/\r\$//;s/^Lambda-Runtime-Aws-Request-Id: //p" "$H" | head -n1)' >> bootstrap && \
-    echo '[ -n "$REQ_ID" ] || { echo "[BOOTSTRAP] missing request id"; exit 125; }' >> bootstrap && \
-    echo 'TESTS=$("$HANDLER_PATH" --gtest_list_tests | gawk '\''/^[^ ]/ {suite=$1; sub(/\.$/, "", suite)} /^[ ]/ {gsub(/^ +/, ""); print suite"."$1}'\'' | head -n "$TOP_N")' >> bootstrap && \
-    echo 'PASSED=0; FAILED=0; SKIPPED=0' >> bootstrap && \
-    echo 'echo "$TESTS" | while read -r TEST; do' >> bootstrap && \
-    echo '  [ -n "$TEST" ] || continue' >> bootstrap && \
-    echo '  echo "== RUNNING: [$TEST] ==" ' >> bootstrap && \
-    echo '  if "$HANDLER_PATH" --gtest_filter="$TEST"; then PASSED=$((PASSED+1)); else FAILED=$((FAILED+1)); fi' >> bootstrap && \
-    echo 'done' >> bootstrap && \
-    echo 'STATUS="ok"; [ "$FAILED" -gt 0 ] && STATUS="failed"' >> bootstrap && \
-    echo 'RESP=$(jq -n --arg status "$STATUS" --argjson passed "$PASSED" --argjson failed "$FAILED" --argjson skipped "$SKIPPED" --argjson top_n "$TOP_N" '\''{status:$status,summary:{passed:$passed,failed:$failed,skipped:$skipped,top_n:$top_n}}'\'')' >> bootstrap && \
-    echo 'printf "%s" "$RESP" | curl -sfS -X POST "http://$RIC/2018-06-01/runtime/invocation/$REQ_ID/response" -H "Content-Type: application/json" -d @- >/dev/null' >> bootstrap && \
-    echo 'rm -f "$H" "$B"' >> bootstrap && \
+RUN curl -sSL https://raw.githubusercontent.com/hetyz/opencv-docker-build/main/bootstrap-core -o bootstrap && \
     chmod +x bootstrap
 
 ENV LD_LIBRARY_PATH=/var/task:/var/task/lib:/var/task/lib64:$LD_LIBRARY_PATH
