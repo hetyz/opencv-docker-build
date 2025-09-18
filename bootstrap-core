@@ -29,19 +29,7 @@ fi
 echo "=== /tmp/test_list.txt tartalma ==="
 cat /tmp/test_list.txt
 
-TESTS=$(awk '
-  /^[^ ]/ {
-    suite=$1
-    sub(/\.$/, "", suite)
-    next
-  }
-  /^[ ]/ {
-    if (suite != "") {
-      gsub(/^ +/, "")
-      print suite "/" $1
-    }
-  }
-' /tmp/test_list.txt | head -n "$TOP_N")
+TESTS=$(grep -E '^[[:space:]]+[a-zA-Z0-9_]+$' /tmp/test_list.txt | sed 's/^[[:space:]]*//')
 
 echo "[BOOTSTRAP] Request ID: $REQ_ID"
 echo "[BOOTSTRAP] Tests to run:"
