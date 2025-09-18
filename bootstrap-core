@@ -1,5 +1,6 @@
 #!/bin/sh
 set -euo pipefail
+
 HANDLER_PATH="/var/task/opencv_test_core"
 RIC="${AWS_LAMBDA_RUNTIME_API}"
 TOP_N="${TOP_N:-5}"
@@ -7,10 +8,10 @@ TOP_N="${TOP_N:-5}"
 echo "[BOOTSTRAP] start RIC=${RIC:-<unset>}"
 [ -x "$HANDLER_PATH" ] || { echo "Not executable: $HANDLER_PATH" >&2; exit 127; }
 
-H=$(mktemp); B=$(mktemp)
+H=$(mktemp)
+B=$(mktemp)
 curl -sfS -D "$H" -o "$B" "http://$RIC/2018-06-01/runtime/invocation/next" >/dev/null
-REQ_ID=$(sed -n 's/
-$//;s/^Lambda-Runtime-Aws-Request-Id: //p' "$H" | head -n1)
+REQ_ID=$(sed -n 's/\r$//;s/^Lambda-Runtime-Aws-Request-Id: //p' "$H" | head -n1)
 [ -n "$REQ_ID" ] || { echo "[BOOTSTRAP] missing request id"; exit 125; }
 
 TESTS=$("$HANDLER_PATH" --gtest_list_tests | gawk '/^[^ ]/ {suite=$1; sub(/\.$/, "", suite)} /^[ ]/ {gsub(/^ +/, ""); print suite"."$1}' | head -n "$TOP_N")
@@ -18,7 +19,10 @@ echo "[BOOTSTRAP] Request ID: $REQ_ID"
 echo "[BOOTSTRAP] Tests to run:"
 echo "$TESTS"
 
-PASSED=0; FAILED=0; SKIPPED=0
+PASSED=0
+FAILED=0
+SKIPPED=0
+
 echo "$TESTS" | while read -r TEST; do
   [ -n "$TEST" ] || continue
   echo "== RUNNING: [$TEST] =="
@@ -29,8 +33,20 @@ echo "$TESTS" | while read -r TEST; do
   fi
 done
 
-STATUS="ok"; [ "$FAILED" -gt 0 ] && STATUS="failed"
-RESP=$(jq -n --arg status "$STATUS" --argjson passed "$PASSED" --argjson failed "$FAILED" --argjson skipped "$SKIPPED" --argjson top_n "$TOP_N" '{status:$status,summary:{passed:$passed,failed:$failed,skipped:$skipped,top_n:$top_n}}')
+STATUS="ok"
+[ "$FAILED" -gt 0 ] && STATUS="failed"
+
+RESP=$(jq -n \
+  --arg status "$STATUS" \
+  --argjson passed "$PASSED" \
+  --argjson failed "$FAILED" \
+  --argjson skipped "$SKIPPED" \
+  --argjson top_n "$TOP_N" \
+  '{status:$status,summary:{passed:$passed,failed:$failed,skipped:$skipped,top_n:$top_n}}')
+
 echo "[BOOTSTRAP] Sending response: $RESP"
-printf "%s" "$RESP" | curl -sfS -X POST "http://$RIC/2018-06-01/runtime/invocation/$REQ_ID/response" -H "Content-Type: application/json" -d @- >/dev/null
+printf "%s" "$RESP" | curl -sfS -X POST "http://$RIC/2018-06-01/runtime/invocation/$REQ_ID/response" \
+  -H "Content-Type: application/json" \
+  -d @-
+
 rm -f "$H" "$B"
