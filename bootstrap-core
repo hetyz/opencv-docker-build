@@ -45,8 +45,11 @@ RESP=$(jq -n \
   '{status:$status,summary:{passed:$passed,failed:$failed,skipped:$skipped,top_n:$top_n}}')
 
 echo "[BOOTSTRAP] Sending response: $RESP"
-printf "%s" "$RESP" | curl -sfS -X POST "http://$RIC/2018-06-01/runtime/invocation/$REQ_ID/response" \
+if ! printf "%s" "$RESP" | curl -sfS -X POST "http://$RIC/2018-06-01/runtime/invocation/$REQ_ID/response" \
   -H "Content-Type: application/json" \
-  -d @-
+  -d @-; then
+  echo "[BOOTSTRAP] ERROR: Failed to send response to Lambda runtime"
+  exit 127
+fi
 
 rm -f "$H" "$B"
